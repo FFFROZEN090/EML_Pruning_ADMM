@@ -1,0 +1,12 @@
+Training log
+Device: cuda
+Batch size: 128
+Image size: 64
+Epoch 1, Loss: 11.9485
+Epoch 2, Loss: 4.5841
+Epoch 3, Loss: 4.7563
+Epoch 4, Loss: 4.9545
+Epoch 5, Loss: 6.0634
+Epoch 6, Loss: 6.0401
+Epoch 7, Loss: 6.1138
+Epoch 8, Loss: 6.1988
