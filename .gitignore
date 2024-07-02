@@ -182,3 +182,6 @@ results/
 
 # Ignore all directories create by wandb
 wandb/
+
+*.gz
+*-ubyte
