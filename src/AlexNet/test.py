@@ -1,38 +1,69 @@
+import sys
+sys.path.append('/home/jli/EML_Pruning_ADMM')
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
-from custom_dataloader import CustomDataLoader
-from alexnet import AlexNet
+from dataloader.ImageNet_dataloader import ImageNetDataLoader
+from torchvision import models
+from AlexNet import AlexNet
+import wandb
 
 class Tester:
     def __init__(self, model, dataloader, device):
         self.model = model
         self.dataloader = dataloader
         self.device = device
+        # Use Accuracy as the metric
+        self.criterion = nn.CrossEntropyLoss()
 
     def evaluate(self):
-        self.model.eval()
-        total_correct = 0
+        self.model.eval()  # Set model to evaluate mode
+        total_loss = 0
+        correct = 0
+        total = 0
         with torch.no_grad():
             for data, target in self.dataloader:
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
-                pred = output.argmax(dim=1, keepdim=True)
-                total_correct += pred.eq(target.view_as(pred)).sum().item()
-        accuracy = total_correct / len(self.dataloader.dataset)
-        return accuracy
+                loss = self.criterion(output, target)
+                total_loss += loss.item()
+                _, predicted = torch.max(output.data, 1)
+                total += target.size(0)
+                correct += (predicted == target).sum().item()
+        avg_loss = total_loss / len(self.dataloader)
+        accuracy = 100 * correct / total
+        return avg_loss, accuracy
+
+def load_model(path, device):
+    model = AlexNet().to(device)
+    model.load_state_dict(torch.load(path))
+    return model
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    data_folder = 'path_to_data'
-    test_batch_indices = [3]  # Assuming that batch 3 is for testing
-    dataloader = CustomDataLoader(data_folder, test_batch_indices, use_cuda=torch.cuda.is_available()).get_dataloader()
-    model = AlexNet().to(device)
-    model.load_state_dict(torch.load('model_to_test.pth'))
-    tester = Tester(model, dataloader, device)
+
+    # Configuration for test data
+    batch_size = 100
+    img_size = 224
+
+    # Load model
+    model_path = 'best_model.pth'
+    model = load_model(model_path, device)
+
+    # Setup data loader for test data
+    dataloader = ImageNetDataLoader(batch_size=batch_size, img_size=img_size, use_cuda=torch.cuda.is_available(), mode='valid').get_dataloader()
     
-    accuracy = tester.evaluate()
-    print(f"Test Accuracy: {accuracy:.2f}")
+    tester = Tester(model, dataloader, device)
+    loss, accuracy = tester.evaluate()
+    print(f"Test Loss: {loss:.4f}, Test Accuracy: {accuracy:.2f}%")
+
+
+    # Use pre-trained AlexNet model for comparison
+    model = models.alexnet(pretrained=True)
+    model = model.to(device)
+    tester = Tester(model, dataloader, device)
+    loss, accuracy = tester.evaluate()
+    print(f"Pre-trained AlexNet Test Loss: {loss:.4f}, Test Accuracy: {accuracy:.2f}%")
+
 
 if __name__ == "__main__":
     main()

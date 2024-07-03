@@ -1,14 +1,15 @@
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader, IterableDataset
+from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from matplotlib import pyplot as plt
 from datasets import load_dataset
 from PIL import Image
 
-class ImageNetDataset(IterableDataset):
+class ImageNetDataset(Dataset):
     def __init__(self, split='train', img_size=224, transform=None):
-        self.dataset = load_dataset('Maysee/tiny-imagenet', split=split, streaming=True)
+        # Loading dataset without streaming
+        self.dataset = load_dataset('Maysee/tiny-imagenet', split=split)  # Removed streaming=True
         self.img_size = img_size
         self.transform = transform
 
@@ -20,19 +21,24 @@ class ImageNetDataset(IterableDataset):
         image = image.resize((self.img_size, self.img_size))
         return image
 
-    def __iter__(self):
-        for item in self.dataset:
-            image = self.preprocess_image(item['image'])
-            label = item['label']
-            if self.transform:
-                image = self.transform(image)
-            yield image, label
+    def __len__(self):
+        return len(self.dataset)  # Now this works because the dataset is fully loaded
+
+    def __getitem__(self, idx):
+        # Accessing data via indexing
+        item = self.dataset[idx]
+        image = self.preprocess_image(item['image'])
+        if self.transform:
+            image = self.transform(image)
+        label = item['label']
+        return image, label
 
 class ImageNetDataLoader:
-    def __init__(self, batch_size=80, img_size=224, use_cuda=False):
+    def __init__(self, batch_size=80, img_size=224, use_cuda=False, mode='train'):
         self.batch_size = batch_size
         self.img_size = img_size
         self.use_cuda = use_cuda
+        self.mode = mode
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -42,17 +48,17 @@ class ImageNetDataLoader:
         ])
 
     def create_dataloader(self):
-        dataset = ImageNetDataset(split='train', img_size=self.img_size, transform=self.transform)
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False, pin_memory=True)
+        dataset = ImageNetDataset(split=self.mode, img_size=self.img_size, transform=self.transform)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, pin_memory=False)
         return dataloader
 
     def get_dataloader(self):
-        dataloader = self.create_dataloader()
-        return dataloader
-
+        return self.create_dataloader()
+    
 def visualize_imagenet_batch(dataloader, num_samples=5):
     dataiter = iter(dataloader)
     images, labels = next(dataiter)
+    print(labels)
 
     images = images.numpy()
     images = images.transpose(0, 2, 3, 1)

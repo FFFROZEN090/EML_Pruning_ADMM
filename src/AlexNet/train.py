@@ -39,7 +39,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Each time only load 2 batches
-    batch_size = 1000
+    batch_size = 100
     img_size = 224
 
         
@@ -47,7 +47,7 @@ def main():
     model = AlexNet().to(device)
     for epoch in range(100):
         # Load data for training
-        dataloader = ImageNetDataLoader(batch_size=batch_size, img_size=img_size, use_cuda=torch.cuda.is_available()).get_dataloader()
+        dataloader = ImageNetDataLoader(batch_size=batch_size, img_size=img_size, use_cuda=torch.cuda.is_available(),mode='train').get_dataloader()
         trainer = Trainer(model, dataloader, device)
         loss = trainer.train_epoch()
         wandb.log({"loss": loss})
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     wandb.init(
         project='EML_Pruning',
         config={
-            "batch_size": 1000,
+            "batch_size": 100,
             "img_size": 224,
             "learning_rate": 0.001,
             "dataset": "ImageNet",
