@@ -7,7 +7,7 @@ from datasets import load_dataset
 from PIL import Image
 
 class ImageNetDataset(Dataset):
-    def __init__(self, split='train', img_size=224, transform=None):
+    def __init__(self, split='train', img_size=64, transform=None):
         # Loading dataset without streaming
         self.dataset = load_dataset('Maysee/tiny-imagenet', split=split)  # Removed streaming=True
         self.img_size = img_size
@@ -34,15 +34,16 @@ class ImageNetDataset(Dataset):
         return image, label
 
 class ImageNetDataLoader:
-    def __init__(self, batch_size=80, img_size=224, use_cuda=False, mode='train'):
+    def __init__(self, batch_size=80, img_size=64, use_cuda=False, mode='train'):
         self.batch_size = batch_size
         self.img_size = img_size
         self.use_cuda = use_cuda
         self.mode = mode
         self.transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
+            transforms.Resize(64),
+            transforms.CenterCrop(64),
             transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
@@ -75,7 +76,7 @@ def visualize_imagenet_batch(dataloader, num_samples=5):
 
 if __name__ == '__main__':
     batch_size = 64
-    img_size = 224
+    img_size = 64
     use_cuda = torch.cuda.is_available()
 
     dataloader_class = ImageNetDataLoader(batch_size, img_size, use_cuda)

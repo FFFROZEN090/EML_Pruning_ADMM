@@ -26,8 +26,10 @@ class Tester:
                 output = self.model(data)
                 loss = self.criterion(output, target)
                 total_loss += loss.item()
-                _, predicted = torch.max(output.data, 1)
+                predicted = torch.argmax(output, 1)
                 total += target.size(0)
+                # Print predicted and target labels for debugging
+                print(predicted, target)
                 correct += (predicted == target).sum().item()
         avg_loss = total_loss / len(self.dataloader)
         accuracy = 100 * correct / total
