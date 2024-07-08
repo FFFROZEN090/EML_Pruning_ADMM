@@ -18,7 +18,7 @@ from torchvision import datasets, transforms
 import sys
 sys.path.append('src') # Suppose entry from root
 from LeNet_5 import LeNet5
-from utils import train, evaluate, count_nonzero_params
+from .utils import train, evaluate, count_nonzero_params
 
 def admm_pruning(model, train_loader, percent, epochs=10, rho=0.01, lr=1e-3, device=None):
     """
