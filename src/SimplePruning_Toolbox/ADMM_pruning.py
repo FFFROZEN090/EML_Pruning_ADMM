@@ -18,15 +18,28 @@ from torchvision import datasets, transforms
 import sys
 sys.path.append('src') # Suppose entry from root
 from LeNet_5 import LeNet5
-from utils import evaluate, count_nonzero_params
+from utils import train, evaluate, count_nonzero_params
 
-def admm_pruning(model, train_loader, epochs=5, rho=0.01, alpha=5e-4, lr=1e-3, device=None):
+def admm_pruning(model, train_loader, percent, epochs=10, rho=0.01, lr=1e-3, device=None):
+    """
+    ADMM-based pruning algorithm
+    Args:
+        model: A PyTorch model for pruning
+        train_loader: A PyTorch dataloader for training
+        percent: A list of pruning rates for each layer
+        epochs: Number of training epochs
+        rho: ADMM hyperparameter
+        lr: Learning rate
+        device: Device to run the model
+
+    Returns:
+        model: Pruned model
+        mask: Pruning mask
+    
+    """
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-
-    # TODO: Revise the last item. LeNet in ADMM paper has 4 layers ours has 5.
-    percent = [0.8, 0.92, 0.991, 0.93, 0.8]
 
     # Initialize Z and U
     Z = ()
@@ -44,7 +57,7 @@ def admm_pruning(model, train_loader, epochs=5, rho=0.01, alpha=5e-4, lr=1e-3, d
         for name, param in model.named_parameters():
             if name.split('.')[-1] == "weight":
                 loss += rho / 2 * (param - Z[idx] + U[idx]).norm()
-                loss += alpha * param.norm()
+                # loss += alpha * param.norm()
                 idx += 1
         return loss
     
@@ -118,7 +131,7 @@ def admm_pruning(model, train_loader, epochs=5, rho=0.01, alpha=5e-4, lr=1e-3, d
         test_loss, accuracy = evaluate(model, train_loader, device, criterion)
         print(f'Test Loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}')
     
-    return model
+    return model, mask
 
 def main():
     use_wandb = True
@@ -151,32 +164,23 @@ def main():
     print(f'Original model, Test Loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}')
 
     # Perform ADMM pruning
-    pruned_model = admm_pruning(model, train_loader)
+    percent = [0.95, 0.95, 0.95, 0.95, 0.95]
+    pruned_model, mask = admm_pruning(model, train_loader, percent)
 
     # Evaluate the pruned model
     test_loss, accuracy = evaluate(pruned_model, test_loader, device, criterion)
     print(f'Pruned model, Test Loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}')
 
-    # TODO: 
-    # Revise retraining. Only retrain the reserved weights. 
-    # Naive retraining will reactivate weights that ought to be pruned.
+    # Retraining
+    print("Retraining the pruned model")
+    fine_tune_epochs = 5
+    optimizer = optim.Adam(pruned_model.parameters(), lr=1e-3)
+    for epoch in range(fine_tune_epochs):
+        train(pruned_model, train_loader, device, optimizer, criterion, mask)
+        test_loss, accuracy = evaluate(pruned_model, test_loader, device, criterion)
+        print(f'Epoch: {epoch + 1}, Test Loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}')
 
-    # Fine-tuning the pruned model
-    # fine_tune_epochs = 5
-    # optimizer = optim.Adam(pruned_model.parameters(), lr=1e-3)
-    # for epoch in range(fine_tune_epochs):
-    #     pruned_model.train()
-    #     for data, target in train_loader:
-    #         data, target = data.to(device), target.to(device)
-    #         optimizer.zero_grad()
-    #         output = pruned_model(data)
-    #         loss = criterion(output, target)
-    #         loss.backward()
-    #         optimizer.step()
-    #     test_loss, accuracy = evaluate(pruned_model, test_loader, device, criterion)
-    #     print(f'Epoch: {epoch + 1}, Test Loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}')
-
-    # print("Model finished fine-tuning")
+    print("Model finished fine-tuning")
     # Save the pruned model parameters
     torch.save(pruned_model.state_dict(), 'pruned_model.pth')
 
