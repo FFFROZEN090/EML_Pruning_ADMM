@@ -5,7 +5,7 @@ The architecture is implemented in the AlexNet.py file and the training and test
 """
 
 from .AlexNet import AlexNet
-from .train import train
-from .test import test
+from .train import Trainer as AlexNetTrainer
+from .test import Tester as AlexNetTester
 
-__all__ = ['AlexNet', 'train', 'test']
+__all__ = ['AlexNet', 'AlexNetTrainer', 'AlexNetTester']

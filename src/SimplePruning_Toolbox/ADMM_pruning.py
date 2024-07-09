@@ -14,11 +14,17 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 from torchvision import datasets, transforms
+import os
 
 import sys
-sys.path.append('src') # Suppose entry from root
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# from LeNet5 import LeNet5
+from AlexNet import AlexNet
 from LeNet_5 import LeNet5
-from .utils import train, evaluate, count_nonzero_params
+from utils import train, evaluate, count_nonzero_params
+
+sys.path.append('/home/jli/EML_Pruning_ADMM')
+from dataloader.ImageNet_dataloader import ImageNetDataLoader
 
 def admm_pruning(model, train_loader, percent, epochs=10, rho=0.01, lr=1e-3, device=None):
     """
@@ -57,7 +63,6 @@ def admm_pruning(model, train_loader, percent, epochs=10, rho=0.01, lr=1e-3, dev
         for name, param in model.named_parameters():
             if name.split('.')[-1] == "weight":
                 loss += rho / 2 * (param - Z[idx] + U[idx]).norm()
-                # loss += alpha * param.norm()
                 idx += 1
         return loss
     
@@ -133,15 +138,16 @@ def admm_pruning(model, train_loader, percent, epochs=10, rho=0.01, lr=1e-3, dev
     
     return model, mask
 
+
 def LeNet_Prun():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # Load the saved model parameters
     model = LeNet5()
-    model.load_state_dict(torch.load('./models/mnist_best_model.pth'))
+    model.load_state_dict(torch.load('../LeNet_5/models/mnist_best_model.pth'))
 
     # Make a copy of the model parameters
     model2 = LeNet5()
-    model2.load_state_dict(torch.load('./models/mnist_best_model.pth'))
+    model2.load_state_dict(torch.load('../LeNet_5/models/mnist_best_model.pth'))
 
     batch_size = 256
     transform = transforms.ToTensor()
@@ -185,15 +191,53 @@ def AlexNet_Prun():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # Load the saved model parameters
     model = AlexNet()
-    model.load_state_dict(torch.load('./models/cifar10_best_model.pth'))
+    model.load_state_dict(torch.load('/home/jli/EML_Pruning_ADMM/src/AlexNet/best_model.pth'))
 
-def main(model_name):
-    if model_name == 'LeNet':
+    # Make a copy of the model parameters
+    model2 = AlexNet()
+    model2.load_state_dict(torch.load('/home/jli/EML_Pruning_ADMM/src/AlexNet/best_model.pth'))
+
+    batch_size = 800
+    train_dataloder = ImageNetDataLoader(batch_size=batch_size, img_size=64, use_cuda=torch.cuda.is_available(), mode='train').get_dataloader()
+    test_dataloader = ImageNetDataLoader(batch_size=batch_size, img_size=64, use_cuda=torch.cuda.is_available(), mode='valid').get_dataloader()
+
+    criterion = nn.CrossEntropyLoss()
+
+    test_loss, accuracy = evaluate(model, test_dataloader, device, criterion)
+    print(f'Original model, Test Loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}')
+
+    # Perform ADMM pruning
+    percent = [0.8, 0.92, 0.93, 0.94, 0.95, 0.99, 0.99, 0.93]
+    pruned_model, mask = admm_pruning(model, train_dataloder, percent)
+
+    # Evaluate the pruned model
+    test_loss, accuracy = evaluate(pruned_model, test_dataloader, device, criterion)
+    print(f'Pruned model, Test Loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}')
+
+    # Retraining
+    print("Retraining the pruned model")
+    fine_tune_epochs = 5
+    optimizer = optim.Adam(pruned_model.parameters(), lr=1e-3)
+    for epoch in range(fine_tune_epochs):
+        train(pruned_model, train_dataloder, device, optimizer, criterion, mask)
+        test_loss, accuracy = evaluate(pruned_model, test_dataloader, device, criterion)
+        print(f'Epoch: {epoch + 1}, Test Loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}')
+
+    print("Model finished fine-tuning")
+    # Save the pruned model parameters
+    torch.save(pruned_model.state_dict(), 'pruned_model.pth')
+
+    # Compare the model sizes by counting the non-zero parameters 
+    print(f"Original model size: {count_nonzero_params(model2)}")
+    print(f"Pruned model size: {count_nonzero_params(pruned_model)}")
+
+def main(model_name = "LeNet5"):
+    if model_name == "LeNet5":
         LeNet_Prun()
-    elif model_name == 'AlexNet':
+    elif model_name == "AlexNet":
         AlexNet_Prun()
-        
 
 
 if __name__ == "__main__":
-    main()
+    model_name = "LeNet5"
+    main(model_name)
