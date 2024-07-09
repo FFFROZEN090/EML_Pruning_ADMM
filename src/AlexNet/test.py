@@ -28,8 +28,6 @@ class Tester:
                 total_loss += loss.item()
                 predicted = torch.argmax(output, 1)
                 total += target.size(0)
-                # Print predicted and target labels for debugging
-                print(predicted, target)
                 correct += (predicted == target).sum().item()
         avg_loss = total_loss / len(self.dataloader)
         accuracy = 100 * correct / total
@@ -48,7 +46,7 @@ def main():
     img_size = 224
 
     # Load model
-    model_path = 'best_model.pth'
+    model_path = 'pruned_model.pth'
     model = load_model(model_path, device)
 
     # Setup data loader for test data

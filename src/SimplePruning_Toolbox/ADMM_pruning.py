@@ -22,8 +22,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from AlexNet import AlexNet
 from LeNet_5 import LeNet5
 from utils import train, evaluate, count_nonzero_params
-
-sys.path.append('/home/jli/EML_Pruning_ADMM')
 from dataloader.ImageNet_dataloader import ImageNetDataLoader
 
 def admm_pruning(model, train_loader, percent, epochs=10, rho=0.01, lr=1e-3, device=None):
@@ -112,6 +110,15 @@ def admm_pruning(model, train_loader, percent, epochs=10, rho=0.01, lr=1e-3, dev
         weight_numpy[under_threshold] = 0
         mask = torch.Tensor(abs(weight_numpy) >= pcen).to(device)
         return mask
+    
+    def print_convergence(model, X, Z):
+        idx = 0
+        print("normalized norm of (weight - projection)")
+        for name, _ in model.named_parameters():
+            if name.split('.')[-1] == "weight":
+                x, z = X[idx], Z[idx]
+                print("({}): {:.4f}".format(name, (x-z).norm().item() / x.norm().item()))
+                idx += 1
 
     for epoch in range(epochs):
         model.train()
@@ -128,6 +135,7 @@ def admm_pruning(model, train_loader, percent, epochs=10, rho=0.01, lr=1e-3, dev
         X = update_X()
         Z = update_Z(X, U)
         U = update_U(U, X, Z)
+        print_convergence(model, X, Z)
         mask = apply_prune(model, device)
         for name, param in model.named_parameters():
             if name in mask:
@@ -191,15 +199,27 @@ def AlexNet_Prun():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # Load the saved model parameters
     model = AlexNet()
-    model.load_state_dict(torch.load('/home/jli/EML_Pruning_ADMM/src/AlexNet/best_model.pth'))
+    model.load_state_dict(torch.load('../AlexNet/best_model.pth'))
 
     # Make a copy of the model parameters
     model2 = AlexNet()
-    model2.load_state_dict(torch.load('/home/jli/EML_Pruning_ADMM/src/AlexNet/best_model.pth'))
+    model2.load_state_dict(torch.load('../AlexNet/best_model.pth'))
 
     batch_size = 800
-    train_dataloder = ImageNetDataLoader(batch_size=batch_size, img_size=64, use_cuda=torch.cuda.is_available(), mode='train').get_dataloader()
-    test_dataloader = ImageNetDataLoader(batch_size=batch_size, img_size=64, use_cuda=torch.cuda.is_available(), mode='valid').get_dataloader()
+    train_dataloder = torch.utils.data.DataLoader(
+            datasets.CIFAR10('data', train=True, download=True,
+                             transform=transforms.Compose([
+                                 transforms.ToTensor(),
+                                 transforms.Normalize((0.49139968, 0.48215827, 0.44653124),
+                                                      (0.24703233, 0.24348505, 0.26158768))
+                             ])), shuffle=True, batch_size=batch_size)
+    test_dataloader = torch.utils.data.DataLoader(
+            datasets.CIFAR10('data', train=False, download=True,
+                             transform=transforms.Compose([
+                                 transforms.ToTensor(),
+                                 transforms.Normalize((0.49139968, 0.48215827, 0.44653124),
+                                                      (0.24703233, 0.24348505, 0.26158768))
+                             ])), shuffle=True, batch_size=batch_size)
 
     criterion = nn.CrossEntropyLoss()
 
@@ -208,7 +228,7 @@ def AlexNet_Prun():
 
     # Perform ADMM pruning
     percent = [0.8, 0.92, 0.93, 0.94, 0.95, 0.99, 0.99, 0.93]
-    pruned_model, mask = admm_pruning(model, train_dataloder, percent)
+    pruned_model, mask = admm_pruning(model, train_dataloder, percent, epochs=30)
 
     # Evaluate the pruned model
     test_loss, accuracy = evaluate(pruned_model, test_dataloader, device, criterion)
@@ -216,7 +236,7 @@ def AlexNet_Prun():
 
     # Retraining
     print("Retraining the pruned model")
-    fine_tune_epochs = 5
+    fine_tune_epochs = 10
     optimizer = optim.Adam(pruned_model.parameters(), lr=1e-3)
     for epoch in range(fine_tune_epochs):
         train(pruned_model, train_dataloder, device, optimizer, criterion, mask)
@@ -239,5 +259,5 @@ def main(model_name = "LeNet5"):
 
 
 if __name__ == "__main__":
-    model_name = "LeNet5"
+    model_name = "AlexNet"
     main(model_name)

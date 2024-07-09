@@ -8,6 +8,9 @@ from dataloader.ImageNet_dataloader import ImageNetDataLoader
 from AlexNet import AlexNet
 import wandb
 import matplotlib.pyplot as plt
+# Import datasets
+import torchvision.datasets as datasets
+import torchvision.transforms as transforms
 
 
 class Trainer:
@@ -96,7 +99,13 @@ def main():
     model = AlexNet().to(device)
     for epoch in range(300):
         # Load data for training
-        dataloader = ImageNetDataLoader(batch_size=batch_size, img_size=img_size, use_cuda=torch.cuda.is_available(),mode='train').get_dataloader()
+        dataloader = torch.utils.data.DataLoader(
+            datasets.CIFAR10('data', train=True, download=True,
+                             transform=transforms.Compose([
+                                 transforms.ToTensor(),
+                                 transforms.Normalize((0.49139968, 0.48215827, 0.44653124),
+                                                      (0.24703233, 0.24348505, 0.26158768))
+                             ])), shuffle=True, batch_size=batch_size)
         trainer = Trainer(model, dataloader, device)
         loss = trainer.train_epoch()
         wandb.log({"train_loss": loss})
@@ -105,7 +114,13 @@ def main():
             trainer.save_model('best_model.pth')
         # Load data for validation every 1/10 epochs
         if epoch % 10 == 0:
-            dataloader = ImageNetDataLoader(batch_size=batch_size, img_size=img_size, use_cuda=torch.cuda.is_available(),mode='valid').get_dataloader()
+            dataloader = torch.utils.data.DataLoader(
+            datasets.CIFAR10('data', train=False, download=True,
+                             transform=transforms.Compose([
+                                 transforms.ToTensor(),
+                                 transforms.Normalize((0.49139968, 0.48215827, 0.44653124),
+                                                      (0.24703233, 0.24348505, 0.26158768))
+                             ])), shuffle=True, batch_size=batch_size)
             validator = Validator(model, dataloader, device)
             val_loss, val_accuracy = validator.validate()
             wandb.log({"val_loss": val_loss, "val_accuracy": val_accuracy})
@@ -119,7 +134,7 @@ if __name__ == "__main__":
         project='EML_Pruning',
         config={
             "batch_size": 800,
-            "img_size": 64,
+            "img_size": 224,
             "learning_rate": 0.001,
             "dataset": "ImageNet",
             "architecture": "AlexNet",
