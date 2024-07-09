@@ -18,6 +18,7 @@ from torchvision import datasets, transforms
 import sys
 sys.path.append('src') # Suppose entry from root
 from LeNet_5 import LeNet5
+from AlexNet import AlexNet
 from utils import evaluate, count_nonzero_params
 
 def admm_pruning(model, train_loader, epochs=5, rho=0.01, alpha=5e-4, lr=1e-3, device=None):
@@ -120,14 +121,7 @@ def admm_pruning(model, train_loader, epochs=5, rho=0.01, alpha=5e-4, lr=1e-3, d
     
     return model
 
-def main():
-    use_wandb = True
-    # WANDB_API = '7bf7e888843b3737561b6df5791c583ae0510730'
-    # if use_wandb:
-    #     import wandb
-    #     wandb.login(key=WANDB_API)
-    #     wandb.init(project='EML_Pruning', entity='wandb', name='lenet')
-    # Define device
+def LeNet_Prun():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # Load the saved model parameters
     model = LeNet5()
@@ -183,6 +177,19 @@ def main():
     # Compare the model sizes by counting the non-zero parameters 
     print(f"Original model size: {count_nonzero_params(model2)}")
     print(f"Pruned model size: {count_nonzero_params(pruned_model)}")
+
+def AlexNet_Prun():
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # Load the saved model parameters
+    model = AlexNet()
+    model.load_state_dict(torch.load('./models/cifar10_best_model.pth'))
+
+def main(model_name):
+    if model_name == 'LeNet':
+        LeNet_Prun()
+    elif model_name == 'AlexNet':
+        AlexNet_Prun()
+        
 
 
 if __name__ == "__main__":
