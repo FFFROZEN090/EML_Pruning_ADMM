@@ -21,7 +21,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # from LeNet5 import LeNet5
 from AlexNet import AlexNet
 from LeNet_5 import LeNet5
-from utils import train, evaluate, count_nonzero_params
+from .utils import train, evaluate, count_nonzero_params
 from dataloader.ImageNet_dataloader import ImageNetDataLoader
 
 def admm_pruning(model, train_loader, percent, epochs=10, rho=0.01, lr=1e-3, device=None):

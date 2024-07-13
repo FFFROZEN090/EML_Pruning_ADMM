@@ -92,7 +92,6 @@ def main():
 
     # Each time only load 2 batches
     batch_size = 800
-    img_size = 64
 
         
     best_loss = float('inf')
