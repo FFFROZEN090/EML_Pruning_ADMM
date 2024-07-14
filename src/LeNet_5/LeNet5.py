@@ -1,9 +1,4 @@
-from torch.nn import Module
-from torch import nn
 from torchinfo import summary
-from torch.nn import functional as F
-
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
