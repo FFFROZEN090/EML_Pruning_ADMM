@@ -1,27 +1,26 @@
-from torch.nn import Module
-from torch import nn
 from torchinfo import summary
-from torch.nn import functional as F
+import torch.nn as nn
+import torch.nn.functional as F
 
-class LeNet5(Module):
+class LeNet5(nn.Module):
     def __init__(self):
         super(LeNet5, self).__init__()
-        self.conv1 = nn.Conv2d(1, 6, 5, 1, padding=2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16*5*5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.conv1 = nn.Conv2d(1, 20, kernel_size=5)
+        self.conv2 = nn.Conv2d(20, 50, kernel_size=5)
+        self.fc1 = nn.Linear(4*4*50, 500)
+        self.fc2 = nn.Linear(500, 10)
+        self.dropout = nn.Dropout()
 
     def forward(self, x):
-        y = F.relu(self.conv1(x))
-        y = F.max_pool2d(y, 2)
-        y = F.relu(self.conv2(y))
-        y = F.max_pool2d(y, 2)
-        y = y.view(y.size(0), -1)
-        y = F.relu(self.fc1(y))
-        y = F.relu(self.fc2(y))
-        y = self.fc3(y)
-        return y
+        x = F.relu(self.conv1(x))
+        x = F.max_pool2d(x, 2)
+        x = F.relu(self.conv2(x))
+        x = F.max_pool2d(x, 2)
+        x = x.view(-1, 4*4*50)  # Flatten the tensor
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
 
 if __name__ == '__main__':
     model = LeNet5()
