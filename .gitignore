@@ -185,3 +185,6 @@ wandb/
 
 *.gz
 *-ubyte
+
+# Unignore images folder
+!images/*.png
